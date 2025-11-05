@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, User, Copy, Edit2, Trash2, Check, X } from "lucide-react";
+import { Bot, User, Copy, Edit2, Trash2, Check, X, RotateCw, ThumbsUp, ThumbsDown } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,10 @@ type MessageProps = {
   isLoading?: boolean;
   onEdit?: (content: string) => void;
   onDelete?: () => void;
+  onRegenerate?: () => void;
+  onFeedback?: (feedback: "positive" | "negative") => void;
   isEditable?: boolean;
+  canRegenerate?: boolean;
 };
 
 const markdownComponents: Components = {
@@ -32,11 +35,12 @@ const markdownComponents: Components = {
   ),
 };
 
-const ChatMessage = ({ message, isLoading = false, onEdit, onDelete, isEditable = false }: MessageProps) => {
+const ChatMessage = ({ message, isLoading = false, onEdit, onDelete, onRegenerate, onFeedback, isEditable = false, canRegenerate = false }: MessageProps) => {
   const isBot = message.role === "assistant";
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<"positive" | "negative" | null>(null);
   const { toast } = useToast();
 
   const handleCopy = async () => {
@@ -78,6 +82,23 @@ const ChatMessage = ({ message, isLoading = false, onEdit, onDelete, isEditable 
     if (onDelete) {
       onDelete();
     }
+  };
+
+  const handleRegenerate = () => {
+    if (onRegenerate) {
+      onRegenerate();
+    }
+  };
+
+  const handleFeedback = (type: "positive" | "negative") => {
+    setFeedback(type);
+    if (onFeedback) {
+      onFeedback(type);
+    }
+    toast({
+      title: "Thank you!",
+      description: "Your feedback helps us improve.",
+    });
   };
 
   return (
@@ -147,6 +168,39 @@ const ChatMessage = ({ message, isLoading = false, onEdit, onDelete, isEditable 
                 <Copy className="h-3.5 w-3.5" />
               )}
             </Button>
+            {isBot && canRegenerate && onRegenerate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleRegenerate}
+                title="Regenerate response"
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {isBot && onFeedback && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 ${feedback === "positive" ? "text-green-600" : ""}`}
+                  onClick={() => handleFeedback("positive")}
+                  title="Helpful"
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 ${feedback === "negative" ? "text-red-600" : ""}`}
+                  onClick={() => handleFeedback("negative")}
+                  title="Not helpful"
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
             {isEditable && !isBot && onEdit && (
               <Button
                 variant="ghost"

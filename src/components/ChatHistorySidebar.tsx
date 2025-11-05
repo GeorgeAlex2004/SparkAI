@@ -3,7 +3,7 @@ import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton,
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MessageSquare, Trash2, Loader2, Search, X } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Loader2, Search, X, Edit2, Check } from "lucide-react";
 import { supabase } from "@/config/supabase";
 import { Chat } from "@/types/database";
 import { format } from "date-fns";
@@ -26,6 +26,8 @@ export default function ChatHistorySidebar({
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
 
   useEffect(() => {
     loadChats();
@@ -85,6 +87,43 @@ export default function ChatHistorySidebar({
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleStartEdit = (e: React.MouseEvent, chat: Chat) => {
+    e.stopPropagation();
+    setEditingId(chat.id);
+    setEditTitle(chat.title);
+  };
+
+  const handleSaveEdit = async (e: React.MouseEvent, chatId: string) => {
+    e.stopPropagation();
+    
+    if (!editTitle.trim()) {
+      setEditingId(null);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('chats')
+        .update({ title: editTitle.trim(), updated_at: new Date().toISOString() })
+        .eq('id', chatId);
+
+      if (error) throw error;
+      
+      setEditingId(null);
+      setEditTitle("");
+      // Reload chats to show updated title
+      loadChats();
+    } catch (error) {
+      console.error('Error updating chat title:', error);
+    }
+  };
+
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(null);
+    setEditTitle("");
   };
 
   const filteredChats = chats.filter((chat) =>
@@ -147,34 +186,83 @@ export default function ChatHistorySidebar({
               {filteredChats.map((chat) => (
                 <SidebarMenuItem key={chat.id}>
                   <div className="group relative flex w-full items-center">
-                    <SidebarMenuButton
-                      onClick={() => onChatSelect(chat.id)}
-                      className={cn(
-                        "w-full justify-start gap-2 px-3 py-2",
-                        currentChatId === chat.id && "bg-sidebar-accent text-sidebar-accent-foreground"
-                      )}
-                    >
-                      <MessageSquare className="h-4 w-4 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate text-sm font-medium">{chat.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {format(new Date(chat.updated_at), "MMM d, h:mm a")}
-                        </p>
+                    {editingId === chat.id ? (
+                      <div className="flex items-center gap-1 w-full px-3 py-2">
+                        <Input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleSaveEdit(e as any, chat.id);
+                            } else if (e.key === "Escape") {
+                              handleCancelEdit(e as any);
+                            }
+                          }}
+                          className="flex-1 h-8 text-sm"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => handleSaveEdit(e, chat.id)}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => handleCancelEdit(e)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </SidebarMenuButton>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 opacity-0 group-hover:opacity-100 h-7 w-7"
-                      onClick={(e) => handleDelete(e, chat.id)}
-                      disabled={deletingId === chat.id}
-                    >
-                      {deletingId === chat.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
+                    ) : (
+                      <>
+                        <SidebarMenuButton
+                          onClick={() => onChatSelect(chat.id)}
+                          className={cn(
+                            "w-full justify-start gap-2 px-3 py-2",
+                            currentChatId === chat.id && "bg-sidebar-accent text-sidebar-accent-foreground"
+                          )}
+                        >
+                          <MessageSquare className="h-4 w-4 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate text-sm font-medium">{chat.title}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {format(new Date(chat.updated_at), "MMM d, h:mm a")}
+                            </p>
+                          </div>
+                        </SidebarMenuButton>
+                        <div className="absolute right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => handleStartEdit(e, chat)}
+                            title="Rename chat"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => handleDelete(e, chat.id)}
+                            disabled={deletingId === chat.id}
+                            title="Delete chat"
+                          >
+                            {deletingId === chat.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </SidebarMenuItem>
               ))}
