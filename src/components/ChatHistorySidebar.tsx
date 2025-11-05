@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MessageSquare, Trash2, Loader2 } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Loader2, Search, X } from "lucide-react";
 import { supabase } from "@/config/supabase";
 import { Chat } from "@/types/database";
 import { format } from "date-fns";
@@ -24,6 +25,7 @@ export default function ChatHistorySidebar({
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadChats();
@@ -85,9 +87,13 @@ export default function ChatHistorySidebar({
     }
   };
 
+  const filteredChats = chats.filter((chat) =>
+    chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border p-4">
+      <SidebarHeader className="border-b border-sidebar-border p-4 space-y-2">
         <Button
           onClick={onNewChat}
           className="w-full justify-start gap-2"
@@ -96,10 +102,30 @@ export default function ChatHistorySidebar({
           <Plus className="h-4 w-4" />
           New Chat
         </Button>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 pr-8"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 h-6 w-6"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </SidebarHeader>
       
       <SidebarContent>
-        <ScrollArea className="h-[calc(100vh-120px)]">
+        <ScrollArea className="h-[calc(100vh-180px)]">
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -110,9 +136,15 @@ export default function ChatHistorySidebar({
               <p className="text-sm text-muted-foreground">No chat history</p>
               <p className="text-xs text-muted-foreground mt-2">Start a new chat to begin</p>
             </div>
+          ) : filteredChats.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-sm text-muted-foreground">No chats found</p>
+              <p className="text-xs text-muted-foreground mt-2">Try a different search term</p>
+            </div>
           ) : (
             <SidebarMenu>
-              {chats.map((chat) => (
+              {filteredChats.map((chat) => (
                 <SidebarMenuItem key={chat.id}>
                   <div className="group relative flex w-full items-center">
                     <SidebarMenuButton

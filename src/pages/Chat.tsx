@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, FileText, Briefcase, MessageSquare, Sun, Moon, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "next-themes";
 import ChatMessage from "@/components/ChatMessage";
 import { GEMINI_API_KEY } from "@/config/api";
 import { supabase } from "@/config/supabase";
@@ -10,9 +11,19 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import ChatHistorySidebar from "@/components/ChatHistorySidebar";
 
 type Message = {
+  id?: string;
   role: "user" | "assistant";
   content: string;
 };
+
+const QUICK_ACTIONS = [
+  { label: "Draft Cover Letter", prompt: "Help me draft a professional cover letter for a software engineer position." },
+  { label: "Critique Resume Bullet", prompt: "Review and improve this resume bullet point: [paste your bullet point here]" },
+  { label: "Practice Interview Questions", prompt: "Generate 5 common interview questions for a software engineer role and help me prepare answers." },
+  { label: "Salary Negotiation Tips", prompt: "Give me tips on how to negotiate salary for a software engineering position." },
+  { label: "LinkedIn Connection Message", prompt: "Help me write a professional LinkedIn connection request message." },
+  { label: "Follow-up Email", prompt: "Help me write a follow-up email after a job interview." },
+];
 
 const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -20,10 +31,12 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [messageIds, setMessageIds] = useState<Map<number, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
 
   // Auto-scroll to bottom when new messages arrive (only if user hasn't scrolled up)
   useEffect(() => {
@@ -59,6 +72,7 @@ const Chat = () => {
           content: "Hi! I'm Career Spark, your AI career assistant. I can help you draft cover letters, prepare for interviews, update your resume, and more. What can I help you with today?",
         },
       ]);
+      setMessageIds(new Map());
     }
   }, [currentChatId]);
 
@@ -73,12 +87,19 @@ const Chat = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setMessages(
-          data.map((msg) => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          }))
-        );
+        const loadedMessages = data.map((msg) => ({
+          id: msg.id,
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        }));
+        setMessages(loadedMessages);
+        
+        // Store message IDs for editing/deletion
+        const idsMap = new Map<number, string>();
+        loadedMessages.forEach((msg, index) => {
+          if (msg.id) idsMap.set(index, msg.id);
+        });
+        setMessageIds(idsMap);
       } else {
         setMessages([
           {
@@ -86,6 +107,7 @@ const Chat = () => {
             content: "Hi! I'm Career Spark, your AI career assistant. I can help you draft cover letters, prepare for interviews, update your resume, and more. What can I help you with today?",
           },
         ]);
+        setMessageIds(new Map());
       }
     } catch (error) {
       console.error("Error loading messages:", error);
@@ -107,6 +129,7 @@ const Chat = () => {
     ]);
     setInput("");
     setAutoScroll(true);
+    setMessageIds(new Map());
   };
 
   const handleChatSelect = async (chatId: string) => {
@@ -120,18 +143,148 @@ const Chat = () => {
     }
   };
 
-  const saveMessage = async (chatId: string, role: "user" | "assistant", content: string) => {
+  const saveMessage = async (chatId: string, role: "user" | "assistant", content: string): Promise<string | null> => {
     try {
-      const { error } = await supabase.from("messages").insert({
-        chat_id: chatId,
-        role,
-        content,
-      });
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          chat_id: chatId,
+          role,
+          content,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data?.id || null;
+    } catch (error) {
+      console.error("Error saving message:", error);
+      return null;
+    }
+  };
+
+  const updateMessage = async (messageId: string, content: string) => {
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .update({ content })
+        .eq("id", messageId);
 
       if (error) throw error;
     } catch (error) {
-      console.error("Error saving message:", error);
+      console.error("Error updating message:", error);
+      throw error;
     }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase.from("messages").delete().eq("id", messageId);
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      throw error;
+    }
+  };
+
+  const handleEditMessage = async (index: number, newContent: string) => {
+    const messageId = messageIds.get(index);
+    if (!messageId) {
+      // Update local state only if no ID (message not saved yet)
+      const updatedMessages = [...messages];
+      updatedMessages[index] = { ...updatedMessages[index], content: newContent };
+      setMessages(updatedMessages);
+      return;
+    }
+
+    try {
+      await updateMessage(messageId, newContent);
+      const updatedMessages = [...messages];
+      updatedMessages[index] = { ...updatedMessages[index], content: newContent };
+      setMessages(updatedMessages);
+      toast({
+        title: "Success",
+        description: "Message updated",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update message",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteMessage = async (index: number) => {
+    const messageId = messageIds.get(index);
+    
+    if (!messageId) {
+      // Just remove from local state if no ID
+      const updatedMessages = messages.filter((_, i) => i !== index);
+      setMessages(updatedMessages);
+      return;
+    }
+
+    try {
+      await deleteMessage(messageId);
+      const updatedMessages = messages.filter((_, i) => i !== index);
+      setMessages(updatedMessages);
+      
+      // Update message IDs map
+      const newIdsMap = new Map<number, string>();
+      updatedMessages.forEach((msg, i) => {
+        if (msg.id) newIdsMap.set(i, msg.id);
+      });
+      setMessageIds(newIdsMap);
+      
+      toast({
+        title: "Success",
+        description: "Message deleted",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete message",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleQuickAction = (prompt: string) => {
+    setInput(prompt);
+  };
+
+  const exportChat = () => {
+    if (messages.length === 0) {
+      toast({
+        title: "No messages",
+        description: "There are no messages to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const chatText = messages
+      .map((msg) => {
+        const role = msg.role === "user" ? "You" : "Career Spark";
+        return `${role}:\n${msg.content}\n\n`;
+      })
+      .join("---\n\n");
+
+    const blob = new Blob([chatText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `career-spark-chat-${currentChatId || "new"}-${new Date().toISOString().split("T")[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exported!",
+      description: "Chat exported successfully",
+    });
   };
 
   const createOrUpdateChat = async (title: string): Promise<string> => {
@@ -202,6 +355,7 @@ const Chat = () => {
     setInput("");
 
     // Add user message to UI immediately
+    const userMessageIndex = messages.length;
     const newMessages = [...messages, { role: "user" as const, content: userMessage }];
     setMessages(newMessages);
     setIsLoading(true);
@@ -231,7 +385,10 @@ const Chat = () => {
     }
 
     // Save user message to database
-    saveMessage(chatId, "user", userMessage);
+    const userMessageId = await saveMessage(chatId, "user", userMessage);
+    if (userMessageId) {
+      setMessageIds((prev) => new Map(prev).set(userMessageIndex, userMessageId));
+    }
 
     try {
       if (!GEMINI_API_KEY || !GEMINI_API_KEY.trim()) {
@@ -287,11 +444,15 @@ const Chat = () => {
         data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't generate a response. Please try again.";
 
       // Add assistant message to UI
+      const assistantMessageIndex = newMessages.length;
       const finalMessages = [...newMessages, { role: "assistant" as const, content: aiResponse }];
       setMessages(finalMessages);
 
       // Save assistant message to database
-      saveMessage(chatId, "assistant", aiResponse);
+      const assistantMessageId = await saveMessage(chatId, "assistant", aiResponse);
+      if (assistantMessageId) {
+        setMessageIds((prev) => new Map(prev).set(assistantMessageIndex, assistantMessageId));
+      }
 
       // Update chat title if it's the first message (use first user message)
       if (messages.length === 1) {
@@ -313,7 +474,10 @@ const Chat = () => {
       
       // Save error message to database
       if (chatId) {
-        saveMessage(chatId, "assistant", `Sorry, I ran into an error: ${errorMessage}`);
+        const errorMessageId = await saveMessage(chatId, "assistant", `Sorry, I ran into an error: ${errorMessage}`);
+        if (errorMessageId) {
+          setMessageIds((prev) => new Map(prev).set(errorMessages.length - 1, errorMessageId));
+        }
       }
 
       toast({
@@ -338,15 +502,33 @@ const Chat = () => {
         <div className="flex flex-col h-screen bg-chat-bg">
           {/* Header */}
           <header className="bg-card border-b border-border shadow-sm">
-            <div className="px-4 py-4 flex items-center gap-2">
-              <SidebarTrigger />
-              <div className="flex items-center gap-3">
-                <img 
-                  src="/Logo.png" 
-                  alt="Career Spark Logo" 
-                  className="h-16 w-16 object-contain"
-                />
-                <h1 className="text-2xl font-bold text-foreground">Career Spark</h1>
+            <div className="px-4 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger />
+                <div className="flex items-center gap-3">
+                  <img 
+                    src="/Logo.png" 
+                    alt="Career Spark Logo" 
+                    className="h-16 w-16 object-contain"
+                  />
+                  <h1 className="text-2xl font-bold text-foreground">Career Spark</h1>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={exportChat}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  title="Toggle theme"
+                >
+                  {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
               </div>
             </div>
           </header>
@@ -355,7 +537,13 @@ const Chat = () => {
           <div className="flex-1 overflow-y-auto" ref={messagesContainerRef}>
             <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
               {messages.map((message, index) => (
-                <ChatMessage key={index} message={message} />
+                <ChatMessage
+                  key={message.id || index}
+                  message={message}
+                  isEditable={message.role === "user"}
+                  onEdit={(content) => handleEditMessage(index, content)}
+                  onDelete={() => handleDeleteMessage(index)}
+                />
               ))}
 
               {isLoading && (
@@ -365,6 +553,28 @@ const Chat = () => {
               <div ref={messagesEndRef} />
             </div>
           </div>
+
+          {/* Quick Actions */}
+          {messages.length <= 1 && (
+            <div className="bg-card border-t border-border px-4 py-3">
+              <div className="max-w-4xl mx-auto">
+                <p className="text-sm text-muted-foreground mb-2">Quick actions:</p>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_ACTIONS.map((action, idx) => (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickAction(action.prompt)}
+                      className="text-xs"
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Input Bar */}
           <div className="bg-card border-t border-border shadow-lg">
