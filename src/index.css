@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Career Spark Professional Blue Theme */
+    --background: 0 0% 100%;
+    --foreground: 217 19% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 217 19% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 19% 16%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 13% 97%;
+    --secondary-foreground: 217 19% 16%;
+
+    --muted: 220 13% 97%;
+    --muted-foreground: 217 15% 50%;
+
+    --accent: 32 95% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.75rem;
+
+    /* Chat specific colors */
+    --chat-bg: 220 13% 97%;
+    --bot-message-bg: 0 0% 100%;
+    --user-message-bg: 217 91% 60%;
+    --user-message-fg: 0 0% 100%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 217 19% 16%;
+    --foreground: 0 0% 100%;
+
+    --card: 217 19% 20%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 217 19% 20%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 19% 24%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 217 19% 24%;
+    --muted-foreground: 217 15% 70%;
+
+    --accent: 32 95% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 19% 24%;
+    --input: 217 19% 24%;
+    --ring: 217 91% 60%;
+
+    /* Chat specific colors for dark mode */
+    --chat-bg: 217 19% 18%;
+    --bot-message-bg: 217 19% 22%;
+    --user-message-bg: 217 91% 60%;
+    --user-message-fg: 0 0% 100%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
