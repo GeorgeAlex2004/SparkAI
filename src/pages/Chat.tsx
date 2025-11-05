@@ -340,13 +340,13 @@ const Chat = () => {
           <header className="bg-card border-b border-border shadow-sm">
             <div className="px-4 py-4 flex items-center gap-2">
               <SidebarTrigger />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <img 
                   src="/Logo.png" 
                   alt="Career Spark Logo" 
-                  className="h-8 w-8 object-contain"
+                  className="h-16 w-16 object-contain"
                 />
-                <h1 className="text-xl font-bold text-foreground">Career Spark</h1>
+                <h1 className="text-2xl font-bold text-foreground">Career Spark</h1>
               </div>
             </div>
           </header>
